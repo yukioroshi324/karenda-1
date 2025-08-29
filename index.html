@@ -2,19 +2,18 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>シンプルカレンダー</title>
+  <title>カラフルカレンダー</title>
   <style>
     table { border-collapse: collapse; width: 100%; }
-    th, td { border: 1px solid #000; padding: 10px; text-align: center; }
+    th, td { border: 1px solid #000; padding: 10px; text-align: center; height: 50px; }
     th { background-color: #f0f0f0; }
-    td { height: 50px; }
   </style>
 </head>
 <body>
   <h1 id="monthYear"></h1>
   <table id="calendar">
     <thead>
-      <tr>
+      <tr id="weekDays">
         <th>日</th><th>月</th><th>火</th><th>水</th><th>木</th><th>金</th><th>土</th>
       </tr>
     </thead>
@@ -24,17 +23,33 @@
   </table>
 
   <script>
+    function getRandomColor() {
+      const letters = '0123456789ABCDEF';
+      let color = '#';
+      for (let i = 0; i < 6; i++) {
+        color += letters[Math.floor(Math.random() * 16)];
+      }
+      return color;
+    }
+
+    // 曜日の文字をランダムカラーにする
+    const weekDays = document.getElementById("weekDays").children[0].children;
+    for (let i = 0; i < weekDays.length; i++) {
+      weekDays[i].style.color = getRandomColor();
+    }
+
     function createCalendar(year, month) {
       const calendarBody = document.getElementById("calendarBody");
       calendarBody.innerHTML = ""; // 既存をクリア
 
       document.getElementById("monthYear").textContent = `${year}年 ${month+1}月`;
+      document.getElementById("monthYear").style.color = getRandomColor(); // 月タイトルもカラフル
 
-      const firstDay = new Date(year, month, 1).getDay(); // 1日の曜日
-      const lastDate = new Date(year, month + 1, 0).getDate(); // 月末日
+      const firstDay = new Date(year, month, 1).getDay();
+      const lastDate = new Date(year, month + 1, 0).getDate();
 
       let date = 1;
-      for (let i = 0; i < 6; i++) { // 最大6行
+      for (let i = 0; i < 6; i++) { 
         const row = document.createElement("tr");
         for (let j = 0; j < 7; j++) {
           const cell = document.createElement("td");
@@ -44,6 +59,7 @@
             cell.textContent = "";
           } else {
             cell.textContent = date;
+            cell.style.color = getRandomColor(); // 日付をランダムカラー
             date++;
           }
           row.appendChild(cell);
