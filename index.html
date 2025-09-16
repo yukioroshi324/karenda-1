@@ -1,1 +1,362 @@
-<!doctype html> <html lang="ja"> <head> <meta charset="utf-8" /> <meta name="viewport" content="width=device-width, initial-scale=1" /> <title>学習タイマー</title> <style>  :root{    --focus-color: #2f7cf6;    --break-color: #16a34a;    --longbreak-color: #8b5cf6;    --text: #0f172a;    --muted: #475569;    --bg: #f8fafc;    --card: #ffffff;    --ring: #e5e7eb;  }  @media (prefers-color-scheme: dark){    :root{      --text: #e5e7eb;      --muted: #94a3b8;      --bg: #0b1220;      --card: #0f172a;      --ring: #1f2937;    }  }  *{box-sizing:border-box}  html,body{height:100%}  body{    margin:0; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif;    background: radial-gradient(1200px 600px at 50% -10%, rgba(99,102,241,0.08), transparent 60%), var(--bg);    color: var(--text);    display:grid; place-items:center;    padding: 24px;  }  .card{    width:min(520px, 92vw);    background: var(--card);    border: 1px solid var(--ring);    border-radius: 16px;    padding: 20px 20px 24px;    box-shadow: 0 10px 30px rgba(0,0,0,0.08);  }  .header{    display:flex; align-items:baseline; gap:8px; justify-content:center; margin-bottom:6px;  }  .mode{    font-weight:700; letter-spacing:.02em;  }  .sub{    color:var(--muted); font-size:14px;  }  .timer-wrap{    display:grid; place-items:center; margin: 12px 0 8px;  }  .svg{    width:min(360px, 78vw); height:min(360px, 78vw);    display:block;  }  .time{    position: absolute;    font-variant-numeric: tabular-nums;    font-size: clamp(40px, 9vw, 64px);    font-weight: 800;    letter-spacing: .02em;  }  .center{    position:relative; display:grid; place-items:center;  }  .controls{    display:flex; gap:10px; justify-content:center; margin-top:14px; flex-wrap:wrap;  }  button{    appearance:none; border:1px solid var(--ring); background: #fff0; color:var(--text);    padding:10px 14px; border-radius:12px; font-weight:700; cursor:pointer;    transition: transform .05s ease, background .15s, border-color .15s;    min-width:108px;  }  button:hover{ background: rgba(148,163,184,0.08); }  button:active{ transform: translateY(1px) scale(0.99); }  .primary{    background: var(--text); color: #fff; border-color: transparent;  }  .primary:hover{ filter: brightness(1.05); }  .pill{    display:inline-flex; align-items:center; gap:8px;    background: rgba(148,163,184,0.16); color: var(--muted);    padding:6px 10px; border-radius:999px; font-size:12px; margin: 0 auto; justify-content:center;  }  .legend{    display:flex; gap:12px; justify-content:center; margin-top:10px; flex-wrap:wrap; font-size:12px; color:var(--muted);  }  .dot{ width:10px; height:10px; border-radius:50%; display:inline-block; }  .focus { background:var(--focus-color) }  .sbreak{ background:var(--break-color) }  .lbreak{ background:var(--longbreak-color) } </style> </head> <body>  <main class="card" role="application" aria-label="学習タイマー">    <div class="header" aria-live="polite" aria-atomic="true">      <div class="mode" id="modeLabel">集中 25:00</div>      <div class="sub" id="cycleLabel">1セット目</div>    </div>     <div class="center timer-wrap">      <!-- 円形タイマー（SVG） -->      <svg class="svg" viewBox="0 0 120 120" aria-hidden="true">        <!-- 背景リング -->        <circle cx="60" cy="60" r="54" stroke="var(--ring)" stroke-width="8" fill="none"/>        <!-- 進行リング（残り時間で縮む） -->        <circle id="progress" cx="60" cy="60" r="54" stroke="var(--focus-color)" stroke-width="8" fill="none"                stroke-linecap="round" transform="rotate(-90 60 60)" />      </svg>      <div class="time" id="timeText" aria-live="polite">25:00</div>    </div>     <div class="controls" aria-label="タイマー操作">      <button class="primary" id="toggleBtn" aria-pressed="false">開始</button>      <button id="skipBtn" title="次モードへ（K）">次へ</button>      <button id="endBtn" title="セッション終了（E）">終了</button>    </div>     <div class="pill" id="hint">スペース: 一時停止/再開・K: 次へ・E: 終了</div>     <div class="legend" aria-hidden="true">      <span><i class="dot focus"></i> 集中25分</span>      <span><i class="dot sbreak"></i> 休憩5分</span>      <span><i class="dot lbreak"></i> 長休憩15分</span>    </div>  </main>  <script> (() => {  // ---- 設定（必要なら変更） ----  const FOCUS_MIN = 25;  const SHORT_BREAK_MIN = 5;  const LONG_BREAK_MIN = 15;  const LONG_BREAK_EVERY = 4; // 4セットごとに長休憩   // ---- 状態 ----  let mode = "focus"; // "focus" | "break" | "long"  let cycle = 1;      // 何セット目の集中か  let durationSec = FOCUS_MIN * 60;  let remainingSec = durationSec;  let ticking = false;  let rafId = null;  let lastTick = null;   // ---- 要素 ----  const progress = document.getElementById("progress");  const timeText = document.getElementById("timeText");  const modeLabel = document.getElementById("modeLabel");  const cycleLabel = document.getElementById("cycleLabel");  const toggleBtn = document.getElementById("toggleBtn");  const skipBtn = document.getElementById("skipBtn");  const endBtn = document.getElementById("endBtn");   // SVG円周  const R = 54;  const CIRC = 2 * Math.PI * R;  progress.setAttribute("stroke-dasharray", String(CIRC));  progress.setAttribute("stroke-dashoffset", "0");   // ---- ユーティリティ ----  const fmt = (s) => {    s = Math.max(0, Math.round(s));    const m = Math.floor(s / 60);    const sec = s % 60;    return `${m.toString().padStart(2,"0")}:${sec.toString().padStart(2,"0")}`;  };   const setColor = () => {    const get = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();    const color =      mode === "focus" ? get("--focus-color") :      mode === "break" ? get("--break-color") : get("--longbreak-color");    progress.setAttribute("stroke", color);  };   const setLabels = () => {    const label =      mode === "focus" ? `集中 ${fmt(durationSec)}` :      mode === "break" ? `休憩 ${fmt(durationSec)}` :      `長休憩 ${fmt(durationSec)}`;    modeLabel.textContent = label;    cycleLabel.textContent = `${cycle}セット目`;  };   const updateProgressArc = () => {    const ratio = 1 - (remainingSec / durationSec);    const offset = ratio * CIRC;    progress.setAttribute("stroke-dashoffset", String(offset));  };   const updateTimeText = () => {    timeText.textContent = fmt(remainingSec);  };   const ringBell = () => {    // 簡易ビープ（WebAudio）    try {      const ctx = new (window.AudioContext || window.webkitAudioContext)();      const o = ctx.createOscillator();      const g = ctx.createGain();      o.type = "sine"; o.frequency.setValueAtTime(880, ctx.currentTime);      g.gain.setValueAtTime(0.0001, ctx.currentTime);      g.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 0.02);      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.5);      o.connect(g).connect(ctx.destination);      o.start(); o.stop(ctx.currentTime + 0.55);    } catch {}  };   // ---- モード遷移 ----  const setMode = (next) => {    mode = next;    if (mode === "focus") {      durationSec = FOCUS_MIN * 60;    } else if (mode === "break") {      durationSec = SHORT_BREAK_MIN * 60;    } else {      durationSec = LONG_BREAK_MIN * 60;    }    remainingSec = durationSec;    setColor();    setLabels();    updateTimeText();    updateProgressArc();  };   const nextMode = () => {    if (mode === "focus") {      // 集中が終わったらセット数を更新      const longBreak = (cycle % LONG_BREAK_EVERY === 0);      setMode(longBreak ? "long" : "break");      ringBell();    } else {      // 休憩の次は集中へ      if (mode !== "focus") cycle++;      setMode("focus");      ringBell();    }  };   // ---- タイマー ----  const start = () => {    if (ticking) return;    ticking = true;    toggleBtn.textContent = "一時停止";    toggleBtn.setAttribute("aria-pressed", "true");    lastTick = performance.now();    tick();  };   const pause = () => {    if (!ticking) return;    ticking = false;    toggleBtn.textContent = "再開";    toggleBtn.setAttribute("aria-pressed", "false");    if (rafId) cancelAnimationFrame(rafId);  };   const resetSession = () => {    ticking = false;    if (rafId) cancelAnimationFrame(rafId);    // セッションを終了し、次のモードに移るのではなく現在モードを初期化    setMode(mode);    toggleBtn.textContent = "開始";    toggleBtn.setAttribute("aria-pressed", "false");  };   const tick = () => {    if (!ticking) return;    const now = performance.now();    const dt = (now - lastTick) / 1000;    lastTick = now;     remainingSec -= dt;    if (remainingSec <= 0) {      remainingSec = 0;      updateTimeText();      updateProgressArc();      pause();      nextMode();      // 次モードを即スタートしたい場合は以下を有効化      start();      return;    }    updateTimeText();    updateProgressArc();    rafId = requestAnimationFrame(tick);  };   // ---- イベント ----  toggleBtn.addEventListener("click", () => ticking ? pause() : start());  skipBtn.addEventListener("click", () => { pause(); nextMode(); updateTimeText(); updateProgressArc(); });  endBtn.addEventListener("click", () => { pause(); resetSession(); });   // キーボード操作  window.addEventListener("keydown", (e) => {    if (e.code === "Space") { e.preventDefault(); ticking ? pause() : start(); }    if (e.key.toLowerCase() === "k") { e.preventDefault(); pause(); nextMode(); }    if (e.key.toLowerCase() === "e") { e.preventDefault(); pause(); resetSession(); }  });   // 初期表示  setMode("focus"); })(); </script> </body> </html>
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>学習タイマー</title>
+  <style>
+    :root {
+      --focus-color: #2f7cf6;
+      --break-color: #16a34a;
+      --longbreak-color: #8b5cf6;
+      --text: #0f172a;
+      --muted: #475569;
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --ring: #e5e7eb;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --text: #e5e7eb;
+        --muted: #94a3b8;
+        --bg: #0b1220;
+        --card: #0f172a;
+        --ring: #1f2937;
+      }
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP",
+        "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif;
+      background: radial-gradient(1200px 600px at 50% -10%, rgba(99,102,241,0.08), transparent 60%), var(--bg);
+      color: var(--text);
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+
+    .card {
+      width: min(520px, 92vw);
+      background: var(--card);
+      border: 1px solid var(--ring);
+      border-radius: 16px;
+      padding: 20px 20px 24px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+    }
+
+    .header {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      justify-content: center;
+      margin-bottom: 6px;
+    }
+    .mode { font-weight: 700; letter-spacing: .02em; }
+    .sub { color: var(--muted); font-size: 14px; }
+
+    .timer-wrap {
+      display: grid;
+      place-items: center;
+      margin: 12px 0 8px;
+    }
+
+    .svg {
+      width: min(360px, 78vw);
+      height: min(360px, 78vw);
+      display: block;
+    }
+
+    .time {
+      position: absolute;
+      font-variant-numeric: tabular-nums;
+      font-size: clamp(40px, 9vw, 64px);
+      font-weight: 800;
+      letter-spacing: .02em;
+    }
+
+    .center {
+      position: relative;
+      display: grid;
+      place-items: center;
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin-top: 14px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      appearance: none;
+      border: 1px solid var(--ring);
+      background: #fff0;
+      color: var(--text);
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform .05s ease, background .15s, border-color .15s;
+      min-width: 108px;
+    }
+    button:hover { background: rgba(148,163,184,0.08); }
+    button:active { transform: translateY(1px) scale(0.99); }
+
+    .primary {
+      background: var(--text);
+      color: #fff;
+      border-color: transparent;
+    }
+    .primary:hover { filter: brightness(1.05); }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(148,163,184,0.16);
+      color: var(--muted);
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      margin: 0 auto;
+      justify-content: center;
+    }
+
+    .legend {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      margin-top: 10px;
+      flex-wrap: wrap;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .focus { background: var(--focus-color); }
+    .sbreak { background: var(--break-color); }
+    .lbreak { background: var(--longbreak-color); }
+  </style>
+</head>
+<body>
+  <main class="card" role="application" aria-label="学習タイマー">
+    <div class="header" aria-live="polite" aria-atomic="true">
+      <div class="mode" id="modeLabel">集中 25:00</div>
+      <div class="sub" id="cycleLabel">1セット目</div>
+    </div>
+
+    <div class="center timer-wrap">
+      <!-- 円形タイマー（SVG） -->
+      <svg class="svg" viewBox="0 0 120 120" aria-hidden="true">
+        <!-- 背景リング -->
+        <circle cx="60" cy="60" r="54" stroke="var(--ring)" stroke-width="8" fill="none"/>
+        <!-- 進行リング -->
+        <circle id="progress" cx="60" cy="60" r="54"
+          stroke="var(--focus-color)" stroke-width="8" fill="none"
+          stroke-linecap="round" transform="rotate(-90 60 60)" />
+      </svg>
+      <div class="time" id="timeText" aria-live="polite">25:00</div>
+    </div>
+
+    <div class="controls" aria-label="タイマー操作">
+      <button class="primary" id="toggleBtn" aria-pressed="false">開始</button>
+      <button id="skipBtn" title="次モードへ（K）">次へ</button>
+      <button id="endBtn" title="セッション終了（E）">終了</button>
+    </div>
+
+    <div class="pill" id="hint">
+      スペース: 一時停止/再開・K: 次へ・E: 終了
+    </div>
+
+    <div class="legend" aria-hidden="true">
+      <span><i class="dot focus"></i> 集中25分</span>
+      <span><i class="dot sbreak"></i> 休憩5分</span>
+      <span><i class="dot lbreak"></i> 長休憩15分</span>
+    </div>
+  </main>
+
+  <script>
+    (() => {
+      // ---- 設定 ----
+      const FOCUS_MIN = 25;
+      const SHORT_BREAK_MIN = 5;
+      const LONG_BREAK_MIN = 15;
+      const LONG_BREAK_EVERY = 4;
+
+      // ---- 状態 ----
+      let mode = "focus";
+      let cycle = 1;
+      let durationSec = FOCUS_MIN * 60;
+      let remainingSec = durationSec;
+      let ticking = false;
+      let rafId = null;
+      let lastTick = null;
+
+      // ---- 要素 ----
+      const progress = document.getElementById("progress");
+      const timeText = document.getElementById("timeText");
+      const modeLabel = document.getElementById("modeLabel");
+      const cycleLabel = document.getElementById("cycleLabel");
+      const toggleBtn = document.getElementById("toggleBtn");
+      const skipBtn = document.getElementById("skipBtn");
+      const endBtn = document.getElementById("endBtn");
+
+      // SVG円周
+      const R = 54;
+      const CIRC = 2 * Math.PI * R;
+      progress.setAttribute("stroke-dasharray", String(CIRC));
+      progress.setAttribute("stroke-dashoffset", "0");
+
+      // ---- ユーティリティ ----
+      const fmt = (s) => {
+        s = Math.max(0, Math.round(s));
+        const m = Math.floor(s / 60);
+        const sec = s % 60;
+        return `${m.toString().padStart(2,"0")}:${sec.toString().padStart(2,"0")}`;
+      };
+
+      const setColor = () => {
+        const get = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+        const color =
+          mode === "focus" ? get("--focus-color") :
+          mode === "break" ? get("--break-color") : get("--longbreak-color");
+        progress.setAttribute("stroke", color);
+      };
+
+      const setLabels = () => {
+        const label =
+          mode === "focus" ? `集中 ${fmt(durationSec)}` :
+          mode === "break" ? `休憩 ${fmt(durationSec)}` : `長休憩 ${fmt(durationSec)}`;
+        modeLabel.textContent = label;
+        cycleLabel.textContent = `${cycle}セット目`;
+      };
+
+      const updateProgressArc = () => {
+        const ratio = 1 - (remainingSec / durationSec);
+        const offset = ratio * CIRC;
+        progress.setAttribute("stroke-dashoffset", String(offset));
+      };
+
+      const updateTimeText = () => {
+        timeText.textContent = fmt(remainingSec);
+      };
+
+      const ringBell = () => {
+        try {
+          const ctx = new (window.AudioContext || window.webkitAudioContext)();
+          const o = ctx.createOscillator();
+          const g = ctx.createGain();
+          o.type = "sine";
+          o.frequency.setValueAtTime(880, ctx.currentTime);
+          g.gain.setValueAtTime(0.0001, ctx.currentTime);
+          g.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 0.02);
+          g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.5);
+          o.connect(g).connect(ctx.destination);
+          o.start();
+          o.stop(ctx.currentTime + 0.55);
+        } catch {}
+      };
+
+      // ---- モード遷移 ----
+      const setMode = (next) => {
+        mode = next;
+        if (mode === "focus") {
+          durationSec = FOCUS_MIN * 60;
+        } else if (mode === "break") {
+          durationSec = SHORT_BREAK_MIN * 60;
+        } else {
+          durationSec = LONG_BREAK_MIN * 60;
+        }
+        remainingSec = durationSec;
+        setColor();
+        setLabels();
+        updateTimeText();
+        updateProgressArc();
+      };
+
+      const nextMode = () => {
+        if (mode === "focus") {
+          const longBreak = (cycle % LONG_BREAK_EVERY === 0);
+          setMode(longBreak ? "long" : "break");
+          ringBell();
+        } else {
+          if (mode !== "focus") cycle++;
+          setMode("focus");
+          ringBell();
+        }
+      };
+
+      // ---- タイマー ----
+      const start = () => {
+        if (ticking) return;
+        ticking = true;
+        toggleBtn.textContent = "一時停止";
+        toggleBtn.setAttribute("aria-pressed", "true");
+        lastTick = performance.now();
+        tick();
+      };
+
+      const pause = () => {
+        if (!ticking) return;
+        ticking = false;
+        toggleBtn.textContent = "再開";
+        toggleBtn.setAttribute("aria-pressed", "false");
+        if (rafId) cancelAnimationFrame(rafId);
+      };
+
+      const resetSession = () => {
+        ticking = false;
+        if (rafId) cancelAnimationFrame(rafId);
+        setMode(mode);
+        toggleBtn.textContent = "開始";
+        toggleBtn.setAttribute("aria-pressed", "false");
+      };
+
+      const tick = () => {
+        if (!ticking) return;
+        const now = performance.now();
+        const dt = (now - lastTick) / 1000;
+        lastTick = now;
+
+        remainingSec -= dt;
+        if (remainingSec <= 0) {
+          remainingSec = 0;
+          updateTimeText();
+          updateProgressArc();
+          pause();
+          nextMode();
+          start();
+          return;
+        }
+        updateTimeText();
+        updateProgressArc();
+        rafId = requestAnimationFrame(tick);
+      };
+
+      // ---- イベント ----
+      toggleBtn.addEventListener("click", () => ticking ? pause() : start());
+      skipBtn.addEventListener("click", () => { pause(); nextMode(); updateTimeText(); updateProgressArc(); });
+      endBtn.addEventListener("click", () => { pause(); resetSession(); });
+
+      window.addEventListener("keydown", (e) => {
+        if (e.code === "Space") { e.preventDefault(); ticking ? pause() : start(); }
+        if (e.key.toLowerCase() === "k") { e.preventDefault(); pause(); nextMode(); }
+        if (e.key.toLowerCase() === "e") { e.preventDefault(); pause(); resetSession(); }
+      });
+
+      // 初期表示
+      setMode("focus");
+    })();
+  </script>
+</body>
+</html>
