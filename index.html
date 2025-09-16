@@ -1,362 +1,265 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="UTF-8">
   <title>学習タイマー</title>
   <style>
-    :root {
-      --focus-color: #2f7cf6;
-      --break-color: #16a34a;
-      --longbreak-color: #8b5cf6;
-      --text: #0f172a;
-      --muted: #475569;
-      --bg: #f8fafc;
-      --card: #ffffff;
-      --ring: #e5e7eb;
-    }
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --text: #e5e7eb;
-        --muted: #94a3b8;
-        --bg: #0b1220;
-        --card: #0f172a;
-        --ring: #1f2937;
-      }
-    }
-
-    * { box-sizing: border-box; }
-    html, body { height: 100%; }
-
     body {
+      font-family: sans-serif;
       margin: 0;
-      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP",
-        "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif;
-      background: radial-gradient(1200px 600px at 50% -10%, rgba(99,102,241,0.08), transparent 60%), var(--bg);
-      color: var(--text);
-      display: grid;
-      place-items: center;
-      padding: 24px;
+      padding: 0;
+      background: #f5f5f5;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
     }
 
-    .card {
-      width: min(520px, 92vw);
-      background: var(--card);
-      border: 1px solid var(--ring);
-      border-radius: 16px;
-      padding: 20px 20px 24px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+    .container {
+      margin: auto;
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      max-width: 350px;
+      width: 90%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
 
     .header {
       display: flex;
-      align-items: baseline;
-      gap: 8px;
-      justify-content: center;
-      margin-bottom: 6px;
-    }
-    .mode { font-weight: 700; letter-spacing: .02em; }
-    .sub { color: var(--muted); font-size: 14px; }
-
-    .timer-wrap {
-      display: grid;
-      place-items: center;
-      margin: 12px 0 8px;
+      justify-content: space-between;
+      width: 100%;
+      margin-bottom: 20px;
+      font-weight: bold;
     }
 
-    .svg {
-      width: min(360px, 78vw);
-      height: min(360px, 78vw);
-      display: block;
-    }
-
-    .time {
-      position: absolute;
-      font-variant-numeric: tabular-nums;
-      font-size: clamp(40px, 9vw, 64px);
-      font-weight: 800;
-      letter-spacing: .02em;
-    }
-
-    .center {
+    .timer {
       position: relative;
-      display: grid;
-      place-items: center;
+      width: 200px;
+      height: 200px;
+      margin-bottom: 20px;
+    }
+
+    .timer svg {
+      transform: rotate(-90deg);
+    }
+
+    .timer-text {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 32px;
+      font-weight: bold;
     }
 
     .controls {
       display: flex;
       gap: 10px;
-      justify-content: center;
-      margin-top: 14px;
       flex-wrap: wrap;
+      justify-content: center;
     }
 
-    button {
-      appearance: none;
-      border: 1px solid var(--ring);
-      background: #fff0;
-      color: var(--text);
-      padding: 10px 14px;
-      border-radius: 12px;
-      font-weight: 700;
+    .controls button {
+      flex: 1;
+      padding: 12px;
+      font-size: 16px;
+      border: none;
+      border-radius: 6px;
       cursor: pointer;
-      transition: transform .05s ease, background .15s, border-color .15s;
-      min-width: 108px;
-    }
-    button:hover { background: rgba(148,163,184,0.08); }
-    button:active { transform: translateY(1px) scale(0.99); }
-
-    .primary {
-      background: var(--text);
-      color: #fff;
-      border-color: transparent;
-    }
-    .primary:hover { filter: brightness(1.05); }
-
-    .pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      background: rgba(148,163,184,0.16);
-      color: var(--muted);
-      padding: 6px 10px;
-      border-radius: 999px;
-      font-size: 12px;
-      margin: 0 auto;
-      justify-content: center;
+      transition: 0.2s;
     }
 
-    .legend {
-      display: flex;
-      gap: 12px;
-      justify-content: center;
-      margin-top: 10px;
-      flex-wrap: wrap;
-      font-size: 12px;
-      color: var(--muted);
+    .controls button:hover {
+      opacity: 0.85;
     }
 
-    .dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
+    #start {
+      background: #333;
+      color: white;
+    }
+    #next {
+      background: #007bff;
+      color: white;
+    }
+    #end {
+      background: #dc3545;
+      color: white;
+    }
+
+    .shortcuts, .legend {
+      margin-top: 15px;
+      font-size: 13px;
+      text-align: center;
+    }
+
+    .legend span {
       display: inline-block;
+      margin: 4px 6px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      color: white;
     }
-    .focus { background: var(--focus-color); }
-    .sbreak { background: var(--break-color); }
-    .lbreak { background: var(--longbreak-color); }
+
+    .focus { background: #007bff; }
+    .short-break { background: #28a745; }
+    .long-break { background: #6f42c1; }
+
+    /* 📱 縦画面時はボタンを画面下に固定 */
+    @media (orientation: portrait) {
+      .controls {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: #fff;
+        padding: 10px;
+        box-shadow: 0 -2px 6px rgba(0,0,0,0.1);
+        border-top: 1px solid #ddd;
+        gap: 10px;
+      }
+      .container {
+        margin-bottom: 70px; /* 下ボタンと被らないように */
+      }
+    }
+
+    /* 🌙 ダークモード */
+    @media (prefers-color-scheme: dark) {
+      body { background: #121212; }
+      .container { background: #1e1e1e; color: #fff; }
+      .controls { background: #1e1e1e; border-top: 1px solid #333; }
+    }
   </style>
 </head>
 <body>
-  <main class="card" role="application" aria-label="学習タイマー">
-    <div class="header" aria-live="polite" aria-atomic="true">
-      <div class="mode" id="modeLabel">集中 25:00</div>
-      <div class="sub" id="cycleLabel">1セット目</div>
+  <div class="container">
+    <div class="header">
+      <div id="mode">集中 25:00</div>
+      <div id="set">1セット目</div>
     </div>
 
-    <div class="center timer-wrap">
-      <!-- 円形タイマー（SVG） -->
-      <svg class="svg" viewBox="0 0 120 120" aria-hidden="true">
-        <!-- 背景リング -->
-        <circle cx="60" cy="60" r="54" stroke="var(--ring)" stroke-width="8" fill="none"/>
-        <!-- 進行リング -->
-        <circle id="progress" cx="60" cy="60" r="54"
-          stroke="var(--focus-color)" stroke-width="8" fill="none"
-          stroke-linecap="round" transform="rotate(-90 60 60)" />
+    <div class="timer">
+      <svg width="200" height="200">
+        <circle cx="100" cy="100" r="90" stroke="#ddd" stroke-width="15" fill="none" />
+        <circle id="progress" cx="100" cy="100" r="90"
+          stroke="#007bff" stroke-width="15" fill="none"
+          stroke-dasharray="565" stroke-dashoffset="0"
+          stroke-linecap="round"/>
       </svg>
-      <div class="time" id="timeText" aria-live="polite">25:00</div>
+      <div class="timer-text" id="time">25:00</div>
     </div>
 
-    <div class="controls" aria-label="タイマー操作">
-      <button class="primary" id="toggleBtn" aria-pressed="false">開始</button>
-      <button id="skipBtn" title="次モードへ（K）">次へ</button>
-      <button id="endBtn" title="セッション終了（E）">終了</button>
+    <div class="shortcuts">スペース: 一時停止/再開・K: 次へ・E: 終了</div>
+    <div class="legend">
+      <span class="focus">集中 25分</span>
+      <span class="short-break">休憩 5分</span>
+      <span class="long-break">長休憩 15分</span>
     </div>
+  </div>
 
-    <div class="pill" id="hint">
-      スペース: 一時停止/再開・K: 次へ・E: 終了
-    </div>
+  <!-- ボタンは container の外に置いてもOK -->
+  <div class="controls">
+    <button id="start">開始</button>
+    <button id="next">次へ</button>
+    <button id="end">終了</button>
+  </div>
 
-    <div class="legend" aria-hidden="true">
-      <span><i class="dot focus"></i> 集中25分</span>
-      <span><i class="dot sbreak"></i> 休憩5分</span>
-      <span><i class="dot lbreak"></i> 長休憩15分</span>
-    </div>
-  </main>
+  <audio id="bell" src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg"></audio>
 
   <script>
-    (() => {
-      // ---- 設定 ----
-      const FOCUS_MIN = 25;
-      const SHORT_BREAK_MIN = 5;
-      const LONG_BREAK_MIN = 15;
-      const LONG_BREAK_EVERY = 4;
+    const timerDisplay = document.getElementById("time");
+    const modeDisplay = document.getElementById("mode");
+    const setDisplay = document.getElementById("set");
+    const progressCircle = document.getElementById("progress");
+    const startBtn = document.getElementById("start");
+    const nextBtn = document.getElementById("next");
+    const endBtn = document.getElementById("end");
+    const bell = document.getElementById("bell");
 
-      // ---- 状態 ----
-      let mode = "focus";
-      let cycle = 1;
-      let durationSec = FOCUS_MIN * 60;
-      let remainingSec = durationSec;
-      let ticking = false;
-      let rafId = null;
-      let lastTick = null;
+    const MODES = [
+      { name: "集中", duration: 25*60, color: "#007bff" },
+      { name: "休憩", duration: 5*60, color: "#28a745" },
+      { name: "長休憩", duration: 15*60, color: "#6f42c1" }
+    ];
 
-      // ---- 要素 ----
-      const progress = document.getElementById("progress");
-      const timeText = document.getElementById("timeText");
-      const modeLabel = document.getElementById("modeLabel");
-      const cycleLabel = document.getElementById("cycleLabel");
-      const toggleBtn = document.getElementById("toggleBtn");
-      const skipBtn = document.getElementById("skipBtn");
-      const endBtn = document.getElementById("endBtn");
+    let currentMode = 0;
+    let setCount = 1;
+    let timeLeft = MODES[0].duration;
+    let timerId = null;
 
-      // SVG円周
-      const R = 54;
-      const CIRC = 2 * Math.PI * R;
-      progress.setAttribute("stroke-dasharray", String(CIRC));
-      progress.setAttribute("stroke-dashoffset", "0");
+    function updateDisplay(){
+      let m = Math.floor(timeLeft/60).toString().padStart(2,"0");
+      let s = (timeLeft%60).toString().padStart(2,"0");
+      timerDisplay.textContent = `${m}:${s}`;
+      modeDisplay.textContent = `${MODES[currentMode].name} ${m}:${s}`;
+      setDisplay.textContent = `${setCount}セット目`;
 
-      // ---- ユーティリティ ----
-      const fmt = (s) => {
-        s = Math.max(0, Math.round(s));
-        const m = Math.floor(s / 60);
-        const sec = s % 60;
-        return `${m.toString().padStart(2,"0")}:${sec.toString().padStart(2,"0")}`;
-      };
+      let progress = 565 - (timeLeft / MODES[currentMode].duration) * 565;
+      progressCircle.setAttribute("stroke-dashoffset", progress);
+      progressCircle.setAttribute("stroke", MODES[currentMode].color);
+    }
 
-      const setColor = () => {
-        const get = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
-        const color =
-          mode === "focus" ? get("--focus-color") :
-          mode === "break" ? get("--break-color") : get("--longbreak-color");
-        progress.setAttribute("stroke", color);
-      };
+    function tick(){
+      if(timeLeft > 0){
+        timeLeft--;
+        updateDisplay();
+      }else{
+        bell.play();
+        nextMode();
+      }
+    }
 
-      const setLabels = () => {
-        const label =
-          mode === "focus" ? `集中 ${fmt(durationSec)}` :
-          mode === "break" ? `休憩 ${fmt(durationSec)}` : `長休憩 ${fmt(durationSec)}`;
-        modeLabel.textContent = label;
-        cycleLabel.textContent = `${cycle}セット目`;
-      };
+    function startTimer(){
+      if(timerId){
+        clearInterval(timerId);
+        timerId = null;
+        startBtn.textContent = "再開";
+      }else{
+        timerId = setInterval(tick,1000);
+        startBtn.textContent = "一時停止";
+      }
+    }
 
-      const updateProgressArc = () => {
-        const ratio = 1 - (remainingSec / durationSec);
-        const offset = ratio * CIRC;
-        progress.setAttribute("stroke-dashoffset", String(offset));
-      };
+    function nextMode(){
+      clearInterval(timerId);
+      timerId = null;
+      startBtn.textContent = "開始";
 
-      const updateTimeText = () => {
-        timeText.textContent = fmt(remainingSec);
-      };
+      if(currentMode === 0){
+        if(setCount % 4 === 0){ currentMode = 2; }
+        else{ currentMode = 1; }
+      }else{
+        currentMode = 0;
+        if(setCount % 4 === 0) setCount++;
+      }
+      timeLeft = MODES[currentMode].duration;
+      updateDisplay();
+    }
 
-      const ringBell = () => {
-        try {
-          const ctx = new (window.AudioContext || window.webkitAudioContext)();
-          const o = ctx.createOscillator();
-          const g = ctx.createGain();
-          o.type = "sine";
-          o.frequency.setValueAtTime(880, ctx.currentTime);
-          g.gain.setValueAtTime(0.0001, ctx.currentTime);
-          g.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 0.02);
-          g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.5);
-          o.connect(g).connect(ctx.destination);
-          o.start();
-          o.stop(ctx.currentTime + 0.55);
-        } catch {}
-      };
+    function endTimer(){
+      clearInterval(timerId);
+      timerId = null;
+      currentMode = 0;
+      setCount = 1;
+      timeLeft = MODES[0].duration;
+      updateDisplay();
+      startBtn.textContent = "開始";
+    }
 
-      // ---- モード遷移 ----
-      const setMode = (next) => {
-        mode = next;
-        if (mode === "focus") {
-          durationSec = FOCUS_MIN * 60;
-        } else if (mode === "break") {
-          durationSec = SHORT_BREAK_MIN * 60;
-        } else {
-          durationSec = LONG_BREAK_MIN * 60;
-        }
-        remainingSec = durationSec;
-        setColor();
-        setLabels();
-        updateTimeText();
-        updateProgressArc();
-      };
+    startBtn.onclick = startTimer;
+    nextBtn.onclick = nextMode;
+    endBtn.onclick = endTimer;
 
-      const nextMode = () => {
-        if (mode === "focus") {
-          const longBreak = (cycle % LONG_BREAK_EVERY === 0);
-          setMode(longBreak ? "long" : "break");
-          ringBell();
-        } else {
-          if (mode !== "focus") cycle++;
-          setMode("focus");
-          ringBell();
-        }
-      };
+    document.addEventListener("keydown",e=>{
+      if(e.code==="Space"){ e.preventDefault(); startTimer(); }
+      if(e.key==="k"||e.key==="K") nextMode();
+      if(e.key==="e"||e.key==="E") endTimer();
+    });
 
-      // ---- タイマー ----
-      const start = () => {
-        if (ticking) return;
-        ticking = true;
-        toggleBtn.textContent = "一時停止";
-        toggleBtn.setAttribute("aria-pressed", "true");
-        lastTick = performance.now();
-        tick();
-      };
-
-      const pause = () => {
-        if (!ticking) return;
-        ticking = false;
-        toggleBtn.textContent = "再開";
-        toggleBtn.setAttribute("aria-pressed", "false");
-        if (rafId) cancelAnimationFrame(rafId);
-      };
-
-      const resetSession = () => {
-        ticking = false;
-        if (rafId) cancelAnimationFrame(rafId);
-        setMode(mode);
-        toggleBtn.textContent = "開始";
-        toggleBtn.setAttribute("aria-pressed", "false");
-      };
-
-      const tick = () => {
-        if (!ticking) return;
-        const now = performance.now();
-        const dt = (now - lastTick) / 1000;
-        lastTick = now;
-
-        remainingSec -= dt;
-        if (remainingSec <= 0) {
-          remainingSec = 0;
-          updateTimeText();
-          updateProgressArc();
-          pause();
-          nextMode();
-          start();
-          return;
-        }
-        updateTimeText();
-        updateProgressArc();
-        rafId = requestAnimationFrame(tick);
-      };
-
-      // ---- イベント ----
-      toggleBtn.addEventListener("click", () => ticking ? pause() : start());
-      skipBtn.addEventListener("click", () => { pause(); nextMode(); updateTimeText(); updateProgressArc(); });
-      endBtn.addEventListener("click", () => { pause(); resetSession(); });
-
-      window.addEventListener("keydown", (e) => {
-        if (e.code === "Space") { e.preventDefault(); ticking ? pause() : start(); }
-        if (e.key.toLowerCase() === "k") { e.preventDefault(); pause(); nextMode(); }
-        if (e.key.toLowerCase() === "e") { e.preventDefault(); pause(); resetSession(); }
-      });
-
-      // 初期表示
-      setMode("focus");
-    })();
+    updateDisplay();
   </script>
 </body>
 </html>
