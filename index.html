@@ -60,6 +60,7 @@
       gap: 10px;
       flex-wrap: wrap;
       justify-content: center;
+      margin-top: 20px; /* ← 横向き用の元の余白 */
     }
 
     .controls button {
@@ -108,21 +109,21 @@
     .short-break { background: #28a745; }
     .long-break { background: #6f42c1; }
 
-    /* 📱 縦画面時はボタンを画面下に固定 */
+    /* 📱 縦画面時だけ下に固定 */
     @media (orientation: portrait) {
       .controls {
         position: fixed;
         bottom: 0;
         left: 0;
         right: 0;
+        margin: 0;             /* 上の余白をリセット */
         background: #fff;
         padding: 10px;
         box-shadow: 0 -2px 6px rgba(0,0,0,0.1);
         border-top: 1px solid #ddd;
-        gap: 10px;
       }
       .container {
-        margin-bottom: 70px; /* 下ボタンと被らないように */
+        margin-bottom: 80px;   /* 下ボタンと被らない余白 */
       }
     }
 
@@ -152,19 +153,18 @@
       <div class="timer-text" id="time">25:00</div>
     </div>
 
+    <div class="controls">
+      <button id="start">開始</button>
+      <button id="next">次へ</button>
+      <button id="end">終了</button>
+    </div>
+
     <div class="shortcuts">スペース: 一時停止/再開・K: 次へ・E: 終了</div>
     <div class="legend">
       <span class="focus">集中 25分</span>
       <span class="short-break">休憩 5分</span>
       <span class="long-break">長休憩 15分</span>
     </div>
-  </div>
-
-  <!-- ボタンは container の外に置いてもOK -->
-  <div class="controls">
-    <button id="start">開始</button>
-    <button id="next">次へ</button>
-    <button id="end">終了</button>
   </div>
 
   <audio id="bell" src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg"></audio>
